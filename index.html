@@ -336,6 +336,62 @@
       font-variant-numeric: tabular-nums;
     }
     .result .subcopy { margin-bottom: 22px; }
+    .leaderboard {
+      margin: 24px 0 20px;
+      text-align: left;
+    }
+    .leaderboard-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 9px;
+    }
+    .leaderboard-heading h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+    .leaderboard-heading span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .high-scores {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .high-scores th,
+    .high-scores td {
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    .high-scores th {
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: .06em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    .high-scores th:nth-child(2),
+    .high-scores td:nth-child(2) { text-align: center; }
+    .high-scores th:last-child,
+    .high-scores td:last-child { text-align: right; }
+    .high-scores td:nth-child(2) {
+      color: var(--accent-2);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .high-scores time { color: var(--muted); }
+    .leaderboard-empty,
+    .score-storage-status {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .score-storage-status:not(:empty) { color: var(--bad); }
     .sr-only {
       position: absolute;
       width: 1px;
@@ -458,6 +514,21 @@
         <p class="subcopy" id="result-copy"></p>
         <div class="result-score" id="final-score"></div>
         <p class="subcopy">points earned</p>
+        <section class="leaderboard" aria-labelledby="leaderboard-title">
+          <div class="leaderboard-heading">
+            <h3 id="leaderboard-title">High score board</h3>
+            <span>Top 10</span>
+          </div>
+          <p class="leaderboard-empty" id="leaderboard-empty">No scores saved yet.</p>
+          <table class="high-scores hidden" id="high-score-table">
+            <caption class="sr-only">Your top 10 quiz scores, with the date and time each was achieved.</caption>
+            <thead>
+              <tr><th scope="col">Rank</th><th scope="col">Score</th><th scope="col">Date and time</th></tr>
+            </thead>
+            <tbody id="high-score-list"></tbody>
+          </table>
+          <p class="score-storage-status" id="score-storage-status" aria-live="polite"></p>
+        </section>
         <button class="primary" id="restart-button" type="button">Fly again <span aria-hidden="true">↻</span></button>
       </div>
     </section>
@@ -486,9 +557,90 @@
     const questionCount = document.querySelector("#question-count");
     const scoreCount = document.querySelector("#score-count");
     const nextButton = document.querySelector("#next-button");
+    const highScoreTable = document.querySelector("#high-score-table");
+    const highScoreList = document.querySelector("#high-score-list");
+    const highScoreEmpty = document.querySelector("#leaderboard-empty");
+    const scoreStorageStatus = document.querySelector("#score-storage-status");
+    const highScoreStorageKey = "orbit-academy-high-scores";
+    const maxHighScores = 10;
     let current = 0;
     let score = 0;
     let locked = false;
+    let resultRecorded = false;
+    let highScores = [];
+
+    function setScoreStorageStatus(message) {
+      scoreStorageStatus.textContent = message;
+    }
+
+    function loadHighScores() {
+      try {
+        const savedScores = window.localStorage.getItem(highScoreStorageKey);
+        if (!savedScores) return [];
+
+        const parsedScores = JSON.parse(savedScores);
+        if (!Array.isArray(parsedScores)) {
+          throw new TypeError("Saved high scores are not a list.");
+        }
+
+        return parsedScores
+          .filter((entry) =>
+            entry &&
+            Number.isInteger(entry.score) &&
+            entry.score >= 0 &&
+            entry.score <= 100 &&
+            typeof entry.achievedAt === "string" &&
+            Number.isFinite(Date.parse(entry.achievedAt))
+          )
+          .sort((a, b) => b.score - a.score || Date.parse(b.achievedAt) - Date.parse(a.achievedAt))
+          .slice(0, maxHighScores);
+      } catch (error) {
+        console.error("Could not load the saved high scores.", error);
+        setScoreStorageStatus("Saved scores could not be loaded from this browser.");
+        return [];
+      }
+    }
+
+    function renderHighScores() {
+      highScoreList.replaceChildren();
+      highScoreEmpty.classList.toggle("hidden", highScores.length > 0);
+      highScoreTable.classList.toggle("hidden", highScores.length === 0);
+
+      highScores.forEach((entry, index) => {
+        const row = document.createElement("tr");
+        const rankCell = document.createElement("td");
+        const scoreCell = document.createElement("td");
+        const dateCell = document.createElement("td");
+        const time = document.createElement("time");
+        const achievedAt = new Date(entry.achievedAt);
+
+        rankCell.textContent = `${index + 1}`;
+        scoreCell.textContent = `${entry.score} / 100`;
+        time.dateTime = entry.achievedAt;
+        time.textContent = new Intl.DateTimeFormat(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short"
+        }).format(achievedAt);
+        dateCell.append(time);
+        row.append(rankCell, scoreCell, dateCell);
+        highScoreList.append(row);
+      });
+    }
+
+    function recordHighScore(finalScore) {
+      const newEntry = { score: finalScore, achievedAt: new Date().toISOString() };
+      highScores = [...highScores, newEntry]
+        .sort((a, b) => b.score - a.score || Date.parse(b.achievedAt) - Date.parse(a.achievedAt))
+        .slice(0, maxHighScores);
+
+      try {
+        window.localStorage.setItem(highScoreStorageKey, JSON.stringify(highScores));
+        setScoreStorageStatus("");
+      } catch (error) {
+        console.error("Could not save the high score in this browser.", error);
+        setScoreStorageStatus("This result is shown, but could not be saved in this browser.");
+      }
+    }
 
     function renderQuestion() {
       locked = false;
@@ -546,6 +698,10 @@
     }
 
     function showResults() {
+      if (resultRecorded) return;
+      resultRecorded = true;
+      recordHighScore(score);
+      renderHighScores();
       quizScreen.classList.add("hidden");
       resultScreen.classList.remove("hidden");
       resultScreen.classList.toggle("celebrating", score >= 80);
@@ -579,6 +735,7 @@
     document.querySelector("#restart-button").addEventListener("click", () => {
       current = 0;
       score = 0;
+      resultRecorded = false;
       scoreCount.textContent = "★ 0 points";
       resultScreen.classList.add("hidden");
       quizScreen.classList.remove("hidden");
@@ -586,6 +743,8 @@
       answerList.querySelector("button")?.focus();
     });
 
+    highScores = loadHighScores();
+    renderHighScores();
     renderQuestion();
   </script>
 </body>
