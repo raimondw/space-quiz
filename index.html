@@ -190,6 +190,35 @@
       background: linear-gradient(90deg, var(--accent), var(--accent-2));
       transition: width .45s cubic-bezier(.2, .8, .2, 1);
     }
+    .timer { margin: -13px 0 23px; }
+    .timer-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .timer-heading strong {
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .timer-track {
+      height: 5px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .09);
+    }
+    .timer-fill {
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--accent-2);
+      transition: width .1s linear, background .2s;
+    }
+    .timer.urgent .timer-heading strong { color: var(--bad); }
+    .timer.urgent .timer-fill { background: var(--bad); }
 
     .question { margin-bottom: 20px; font-size: 20px; font-weight: 720; line-height: 1.4; }
     .answers { display: grid; gap: 10px; }
@@ -432,6 +461,12 @@
         <div class="progress-track" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0">
           <div class="progress-fill" id="progress-fill"></div>
         </div>
+        <div class="timer" id="question-timer" role="timer" aria-label="Time remaining">
+          <div class="timer-heading"><span>Time left</span><strong id="timer-countdown">3s</strong></div>
+          <div class="timer-track" id="timer-track" role="progressbar" aria-label="Question time remaining" aria-valuemin="0" aria-valuemax="3" aria-valuenow="3">
+            <div class="timer-fill" id="timer-fill"></div>
+          </div>
+        </div>
         <div id="question-area">
           <p class="question" id="question-text" tabindex="-1"></p>
           <div class="answers" id="answer-list"></div>
@@ -458,6 +493,7 @@
         <p class="subcopy" id="result-copy"></p>
         <div class="result-score" id="final-score"></div>
         <p class="subcopy">points earned</p>
+        <p class="subcopy" id="response-time"></p>
         <button class="primary" id="restart-button" type="button">Fly again <span aria-hidden="true">↻</span></button>
       </div>
     </section>
@@ -486,11 +522,54 @@
     const questionCount = document.querySelector("#question-count");
     const scoreCount = document.querySelector("#score-count");
     const nextButton = document.querySelector("#next-button");
+    const timer = document.querySelector("#question-timer");
+    const timerCountdown = document.querySelector("#timer-countdown");
+    const timerTrack = document.querySelector("#timer-track");
+    const timerFill = document.querySelector("#timer-fill");
+    const QUESTION_TIME_LIMIT = 3;
     let current = 0;
     let score = 0;
     let locked = false;
+    let timerInterval = null;
+    let questionStartedAt = 0;
+    let responseTime = 0;
+
+    function stopQuestionTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    function updateQuestionTimer() {
+      const duration = QUESTION_TIME_LIMIT * 1000;
+      const remaining = Math.max(0, duration - (performance.now() - questionStartedAt));
+      const secondsLeft = Math.ceil(remaining / 1000);
+      timerCountdown.textContent = `${secondsLeft}s`;
+      timerTrack.setAttribute("aria-valuenow", secondsLeft);
+      timerFill.style.width = `${(remaining / duration) * 100}%`;
+      timer.classList.toggle("urgent", secondsLeft <= 1);
+
+      if (remaining === 0) timeOutQuestion();
+    }
+
+    function startQuestionTimer() {
+      questionStartedAt = performance.now();
+      timerCountdown.textContent = `${QUESTION_TIME_LIMIT}s`;
+      timerTrack.setAttribute("aria-valuenow", QUESTION_TIME_LIMIT);
+      timerFill.style.width = "100%";
+      timer.classList.remove("urgent");
+      timerInterval = setInterval(updateQuestionTimer, 100);
+    }
+
+    function revealNextQuestionButton() {
+      nextButton.innerHTML = current === questions.length - 1
+        ? "See my results <span aria-hidden=\"true\">✦</span>"
+        : "Next question <span aria-hidden=\"true\">→</span>";
+      nextButton.classList.remove("hidden");
+      nextButton.focus();
+    }
 
     function renderQuestion() {
+      stopQuestionTimer();
       locked = false;
       const item = questions[current];
       questionCount.textContent = `Question ${current + 1} of ${questions.length}`;
@@ -512,11 +591,35 @@
       const completed = current;
       progressFill.style.width = `${(completed / questions.length) * 100}%`;
       progressTrack.setAttribute("aria-valuenow", completed);
+      startQuestionTimer();
+    }
+
+    function timeOutQuestion() {
+      if (locked) return;
+      locked = true;
+      stopQuestionTimer();
+      responseTime += QUESTION_TIME_LIMIT;
+      const item = questions[current];
+      [...answerList.querySelectorAll("button")].forEach((answerButton, index) => {
+        answerButton.disabled = true;
+        if (index === item.correct) answerButton.classList.add("correct");
+      });
+      feedback.textContent = `Time's up! ${item.fact}`;
+      feedback.classList.add("bad");
+      progressFill.style.width = `${((current + 1) / questions.length) * 100}%`;
+      progressTrack.setAttribute("aria-valuenow", current + 1);
+      revealNextQuestionButton();
     }
 
     function selectAnswer(selected, button) {
       if (locked) return;
+      if (performance.now() - questionStartedAt >= QUESTION_TIME_LIMIT * 1000) {
+        timeOutQuestion();
+        return;
+      }
       locked = true;
+      stopQuestionTimer();
+      responseTime += Math.min((performance.now() - questionStartedAt) / 1000, QUESTION_TIME_LIMIT);
       const item = questions[current];
       const isCorrect = selected === item.correct;
       const buttons = [...answerList.querySelectorAll("button")];
@@ -538,18 +641,16 @@
 
       progressFill.style.width = `${((current + 1) / questions.length) * 100}%`;
       progressTrack.setAttribute("aria-valuenow", current + 1);
-      nextButton.innerHTML = current === questions.length - 1
-        ? "See my results <span aria-hidden=\"true\">✦</span>"
-        : "Next question <span aria-hidden=\"true\">→</span>";
-      nextButton.classList.remove("hidden");
-      nextButton.focus();
+      revealNextQuestionButton();
     }
 
     function showResults() {
+      stopQuestionTimer();
       quizScreen.classList.add("hidden");
       resultScreen.classList.remove("hidden");
       resultScreen.classList.toggle("celebrating", score >= 80);
       document.querySelector("#final-score").textContent = `${score} / 100`;
+      document.querySelector("#response-time").textContent = `Total response time: ${responseTime.toFixed(1)}s · use for tie-breaks`;
       const percent = score / 100;
       const result = percent === 1
         ? ["🚀", "Out of this world!", "A perfect mission! You really are a cosmic superstar."]
@@ -579,6 +680,7 @@
     document.querySelector("#restart-button").addEventListener("click", () => {
       current = 0;
       score = 0;
+      responseTime = 0;
       scoreCount.textContent = "★ 0 points";
       resultScreen.classList.add("hidden");
       quizScreen.classList.remove("hidden");
