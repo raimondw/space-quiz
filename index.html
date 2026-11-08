@@ -250,6 +250,12 @@
       animation: shake .38s ease;
     }
     .answer.wrong .letter { color: #3a0711; background: var(--bad); }
+    .answer.selected {
+      border-color: rgba(103, 232, 249, .8);
+      background: rgba(103, 232, 249, .12);
+      box-shadow: 0 0 0 2px rgba(103, 232, 249, .08);
+    }
+    .answer.selected .letter { color: #062b33; background: var(--accent-2); }
     .feedback {
       min-height: 28px;
       margin: 15px 0 0;
@@ -275,6 +281,36 @@
     }
     .primary:hover { transform: translateY(-2px); filter: brightness(1.06); }
     .primary:active { transform: translateY(0); }
+    .secondary {
+      width: 100%;
+      margin-top: 8px;
+      padding: 12px 18px;
+      border: 1px solid var(--panel-border);
+      border-radius: 13px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, .055);
+      cursor: pointer;
+      font-weight: 750;
+      transition: background .18s, border-color .18s;
+    }
+    .secondary:hover { border-color: rgba(167, 139, 250, .65); background: rgba(167, 139, 250, .1); }
+    .review-list {
+      display: grid;
+      gap: 10px;
+      max-height: min(52vh, 430px);
+      overflow-y: auto;
+      margin: 20px 0;
+      padding: 2px 6px 2px 34px;
+    }
+    .review-list li {
+      padding: 12px 14px;
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .045);
+    }
+    .review-question { margin: 0 0 5px; font-weight: 700; }
+    .review-answer { margin: 0; color: var(--accent-2); font-size: 14px; }
+    .review-actions { display: grid; gap: 8px; }
     .hidden { display: none !important; }
     .result {
       position: relative;
@@ -427,7 +463,7 @@
         <p class="intro">How well do you know our cosmic neighborhood? Pick an answer and find out.</p>
         <div class="stats">
           <span id="question-count">Question 1 of 10</span>
-          <span class="score-pill" id="score-count" aria-live="polite">★ 0 points</span>
+          <span class="score-pill" id="score-count" aria-live="polite">Assessment pending</span>
         </div>
         <div class="progress-track" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0">
           <div class="progress-fill" id="progress-fill"></div>
@@ -437,6 +473,16 @@
           <div class="answers" id="answer-list"></div>
           <p class="feedback" id="feedback" aria-live="polite"></p>
           <button class="primary hidden" id="next-button" type="button">Next question <span aria-hidden="true">→</span></button>
+        </div>
+      </div>
+      <div id="review-screen" class="hidden" aria-labelledby="review-title">
+        <p class="eyebrow">Mission review</p>
+        <h2 id="review-title" tabindex="-1">Review your answers</h2>
+        <p class="subcopy">Check each answer before submitting your quiz for assessment.</p>
+        <ol class="review-list" id="review-list"></ol>
+        <div class="review-actions">
+          <button class="primary" id="submit-button" type="button">Submit answers for assessment <span aria-hidden="true">✦</span></button>
+          <button class="secondary" id="quit-button" type="button">Quit without a result</button>
         </div>
       </div>
       <div class="result hidden" id="result-screen" aria-live="polite">
@@ -460,6 +506,13 @@
         <p class="subcopy">points earned</p>
         <button class="primary" id="restart-button" type="button">Fly again <span aria-hidden="true">↻</span></button>
       </div>
+      <div class="result hidden" id="quit-screen" aria-live="polite">
+        <p class="eyebrow">Mission aborted</p>
+        <div class="reaction" aria-hidden="true">🛰️</div>
+        <h2 id="quit-title" tabindex="-1">Quiz cancelled</h2>
+        <p class="subcopy">No result was recorded for this attempt.</p>
+        <button class="primary" id="restart-quiz-button" type="button">Start a new quiz <span aria-hidden="true">↻</span></button>
+      </div>
     </section>
   </main>
   <script>
@@ -477,15 +530,21 @@
     ];
 
     const quizScreen = document.querySelector("#quiz-screen");
+    const reviewScreen = document.querySelector("#review-screen");
     const resultScreen = document.querySelector("#result-screen");
+    const quitScreen = document.querySelector("#quit-screen");
     const questionText = document.querySelector("#question-text");
     const answerList = document.querySelector("#answer-list");
+    const reviewList = document.querySelector("#review-list");
     const feedback = document.querySelector("#feedback");
     const progressTrack = document.querySelector(".progress-track");
     const progressFill = document.querySelector("#progress-fill");
     const questionCount = document.querySelector("#question-count");
     const scoreCount = document.querySelector("#score-count");
     const nextButton = document.querySelector("#next-button");
+    const submitButton = document.querySelector("#submit-button");
+    const quitButton = document.querySelector("#quit-button");
+    const selectedAnswers = Array(questions.length).fill(null);
     let current = 0;
     let score = 0;
     let locked = false;
@@ -503,9 +562,9 @@
       item.answers.forEach((answer, index) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = "answer";
+        button.className = `answer${selectedAnswers[current] === index ? " selected" : ""}`;
         button.innerHTML = `<span class="letter">${String.fromCharCode(65 + index)}</span><span>${answer}</span>`;
-        button.addEventListener("click", () => selectAnswer(index, button));
+        button.addEventListener("click", () => selectAnswer(index));
         answerList.append(button);
       });
 
@@ -514,38 +573,47 @@
       progressTrack.setAttribute("aria-valuenow", completed);
     }
 
-    function selectAnswer(selected, button) {
+    function selectAnswer(selected) {
       if (locked) return;
       locked = true;
-      const item = questions[current];
-      const isCorrect = selected === item.correct;
+      selectedAnswers[current] = selected;
       const buttons = [...answerList.querySelectorAll("button")];
       buttons.forEach((answerButton, index) => {
         answerButton.disabled = true;
-        if (index === item.correct) answerButton.classList.add("correct");
+        if (index === selected) answerButton.classList.add("selected");
       });
 
-      if (isCorrect) {
-        score += 10;
-        scoreCount.textContent = `★ ${score} ${score === 1 ? "point" : "points"}`;
-        feedback.textContent = `Correct! ${item.fact}`;
-        feedback.classList.add("good");
-      } else {
-        button.classList.add("wrong");
-        feedback.textContent = `Not quite! ${item.fact}`;
-        feedback.classList.add("bad");
-      }
+      feedback.textContent = "Answer saved. Your result will be revealed after submission.";
 
       progressFill.style.width = `${((current + 1) / questions.length) * 100}%`;
       progressTrack.setAttribute("aria-valuenow", current + 1);
       nextButton.innerHTML = current === questions.length - 1
-        ? "See my results <span aria-hidden=\"true\">✦</span>"
+        ? "Review my answers <span aria-hidden=\"true\">→</span>"
         : "Next question <span aria-hidden=\"true\">→</span>";
       nextButton.classList.remove("hidden");
       nextButton.focus();
     }
 
+    function showReview() {
+      quizScreen.classList.add("hidden");
+      reviewScreen.classList.remove("hidden");
+      reviewList.replaceChildren();
+      questions.forEach((item, index) => {
+        const entry = document.createElement("li");
+        const question = document.createElement("p");
+        question.className = "review-question";
+        question.textContent = item.question;
+        const answer = document.createElement("p");
+        answer.className = "review-answer";
+        answer.textContent = `Your answer: ${item.answers[selectedAnswers[index]]}`;
+        entry.append(question, answer);
+        reviewList.append(entry);
+      });
+      document.querySelector("#review-title").focus();
+    }
+
     function showResults() {
+      reviewScreen.classList.add("hidden");
       quizScreen.classList.add("hidden");
       resultScreen.classList.remove("hidden");
       resultScreen.classList.toggle("celebrating", score >= 80);
@@ -568,7 +636,7 @@
 
     nextButton.addEventListener("click", () => {
       if (current === questions.length - 1) {
-        showResults();
+        showReview();
         return;
       }
       current += 1;
@@ -576,15 +644,34 @@
       questionText.focus();
     });
 
-    document.querySelector("#restart-button").addEventListener("click", () => {
+    submitButton.addEventListener("click", () => {
+      score = selectedAnswers.reduce((total, selected, index) =>
+        total + (selected === questions[index].correct ? 10 : 0), 0);
+      scoreCount.textContent = `★ ${score} points`;
+      showResults();
+    });
+
+    quitButton.addEventListener("click", () => {
+      reviewScreen.classList.add("hidden");
+      quitScreen.classList.remove("hidden");
+      document.querySelector("#quit-title").focus();
+    });
+
+    function restartQuiz() {
       current = 0;
       score = 0;
-      scoreCount.textContent = "★ 0 points";
+      selectedAnswers.fill(null);
+      scoreCount.textContent = "Assessment pending";
+      reviewScreen.classList.add("hidden");
       resultScreen.classList.add("hidden");
+      quitScreen.classList.add("hidden");
       quizScreen.classList.remove("hidden");
       renderQuestion();
       answerList.querySelector("button")?.focus();
-    });
+    }
+
+    document.querySelector("#restart-button").addEventListener("click", restartQuiz);
+    document.querySelector("#restart-quiz-button").addEventListener("click", restartQuiz);
 
     renderQuestion();
   </script>
