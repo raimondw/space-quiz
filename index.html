@@ -323,6 +323,45 @@
       transition: background .18s, border-color .18s;
     }
     .secondary:hover { border-color: rgba(167, 139, 250, .65); background: rgba(167, 139, 250, .1); }
+    .admin-screen h2 { margin-bottom: 8px; }
+    .admin-screen .subcopy { margin-bottom: 20px; }
+    .admin-form { display: grid; gap: 14px; }
+    .admin-form label,
+    .admin-form legend { font-size: 13px; font-weight: 750; }
+    .admin-form input {
+      width: 100%;
+      margin-top: 5px;
+      padding: 11px 12px;
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, .07);
+      font: inherit;
+    }
+    .admin-form input:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    .admin-form fieldset {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+    }
+    .admin-form fieldset label { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+    .admin-form input[type="radio"] {
+      width: auto;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: none;
+      accent-color: var(--control-accent);
+    }
+    .admin-notice,
+    .admin-status { margin: 0; color: var(--muted); font-size: 12px; }
+    .admin-status:not(:empty) { color: var(--accent-2); }
     .review-list {
       display: grid;
       gap: 10px;
@@ -539,7 +578,7 @@
     <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span> Orbit Academy</div>
     <section class="card" aria-labelledby="page-title">
       <div id="quiz-screen">
-        <p class="eyebrow">Mission briefing · 10 questions</p>
+        <p class="eyebrow" id="quiz-briefing">Mission briefing · 10 questions</p>
         <h1 id="page-title" class="title-display">
           <span class="title-meta" aria-hidden="true">
             <span>Mission control // 01</span>
@@ -548,6 +587,7 @@
           <span class="title-name">Space explorer quiz</span>
         </h1>
         <p class="intro">How well do you know our cosmic neighborhood? Pick an answer and find out.</p>
+        <button class="secondary" id="open-admin-button" type="button">Admin: manage questions</button>
         <div class="stats">
           <span id="question-count">Question 1 of 10</span>
           <span class="score-pill" id="score-count" aria-live="polite">Assessment pending</span>
@@ -568,6 +608,64 @@
           <button class="primary hidden" id="next-button" type="button">Next question <span aria-hidden="true">→</span></button>
         </div>
       </div>
+      <section id="admin-screen" class="admin-screen hidden" aria-labelledby="admin-title">
+        <p class="eyebrow">Mission control</p>
+        <h2 id="admin-title">Question manager</h2>
+        <p class="subcopy">Add four-option questions to this browser’s quiz. Your questions stay in this browser.</p>
+        <p class="admin-notice" id="admin-security-note">The PIN is a convenience gate only. This static app cannot securely verify admin identity; anyone with access to this browser or its data can bypass it.</p>
+        <div id="admin-setup" class="hidden">
+          <h3>Set an admin PIN</h3>
+          <p class="subcopy">Choose a 4–8 digit PIN for this browser.</p>
+          <form class="admin-form" id="admin-setup-form">
+            <label for="admin-new-pin">New PIN
+              <input id="admin-new-pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="new-password" required>
+            </label>
+            <label for="admin-confirm-pin">Confirm PIN
+              <input id="admin-confirm-pin" name="confirm-pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="new-password" required>
+            </label>
+            <button class="primary" type="submit">Save PIN</button>
+          </form>
+        </div>
+        <div id="admin-unlock" class="hidden">
+          <h3>Admin access</h3>
+          <form class="admin-form" id="admin-unlock-form">
+            <label for="admin-pin">PIN
+              <input id="admin-pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="current-password" required>
+            </label>
+            <button class="primary" type="submit">Unlock question manager</button>
+          </form>
+        </div>
+        <div id="admin-tools" class="hidden">
+          <h3>Add a question</h3>
+          <form class="admin-form" id="admin-question-form">
+            <label for="new-question">Question
+              <input id="new-question" name="question" type="text" maxlength="300" required>
+            </label>
+            <label for="new-answer-1">Answer option 1
+              <input id="new-answer-1" name="answer-0" type="text" maxlength="120" required>
+            </label>
+            <label for="new-answer-2">Answer option 2
+              <input id="new-answer-2" name="answer-1" type="text" maxlength="120" required>
+            </label>
+            <label for="new-answer-3">Answer option 3
+              <input id="new-answer-3" name="answer-2" type="text" maxlength="120" required>
+            </label>
+            <label for="new-answer-4">Answer option 4
+              <input id="new-answer-4" name="answer-3" type="text" maxlength="120" required>
+            </label>
+            <fieldset>
+              <legend>Correct answer</legend>
+              <label><input type="radio" name="correct-answer" value="0" checked> Option 1</label>
+              <label><input type="radio" name="correct-answer" value="1"> Option 2</label>
+              <label><input type="radio" name="correct-answer" value="2"> Option 3</label>
+              <label><input type="radio" name="correct-answer" value="3"> Option 4</label>
+            </fieldset>
+            <button class="primary" type="submit">Add question</button>
+          </form>
+        </div>
+        <p class="admin-status" id="admin-status" aria-live="polite"></p>
+        <button class="secondary" id="close-admin-button" type="button">Lock and return to quiz</button>
+      </section>
       <div id="review-screen" class="hidden" aria-labelledby="review-title">
         <p class="eyebrow">Mission review</p>
         <h2 id="review-title" tabindex="-1">Review your answers</h2>
@@ -639,6 +737,15 @@
     ];
 
     const quizScreen = document.querySelector("#quiz-screen");
+    const adminScreen = document.querySelector("#admin-screen");
+    const adminSetup = document.querySelector("#admin-setup");
+    const adminUnlock = document.querySelector("#admin-unlock");
+    const adminTools = document.querySelector("#admin-tools");
+    const adminStatus = document.querySelector("#admin-status");
+    const adminQuestionForm = document.querySelector("#admin-question-form");
+    const adminPinStorageKey = "orbit-academy-admin-pin";
+    const customQuestionsStorageKey = "orbit-academy-custom-questions";
+    const customQuestions = [];
     const reviewScreen = document.querySelector("#review-screen");
     const resultScreen = document.querySelector("#result-screen");
     const quitScreen = document.querySelector("#quit-screen");
@@ -649,6 +756,7 @@
     const progressTrack = document.querySelector(".progress-track");
     const progressFill = document.querySelector("#progress-fill");
     const questionCount = document.querySelector("#question-count");
+    const quizBriefing = document.querySelector("#quiz-briefing");
     const scoreCount = document.querySelector("#score-count");
     const nextButton = document.querySelector("#next-button");
     const highScoreTable = document.querySelector("#high-score-table");
@@ -673,9 +781,59 @@
     let timerInterval = null;
     let questionStartedAt = 0;
     let responseTime = 0;
+    let adminPin = null;
+    let pausedQuestionRemaining = null;
+    let questionStorageStatus = "";
 
     function setScoreStorageStatus(message) {
       scoreStorageStatus.textContent = message;
+    }
+
+    function setAdminStatus(message) {
+      adminStatus.textContent = message;
+    }
+
+    function isValidQuestion(item) {
+      return item &&
+        typeof item.question === "string" &&
+        item.question.trim().length > 0 &&
+        item.question.length <= 300 &&
+        Array.isArray(item.answers) &&
+        item.answers.length === 4 &&
+        item.answers.every((answer) => typeof answer === "string" && answer.trim().length > 0 && answer.length <= 120) &&
+        Number.isInteger(item.correct) &&
+        item.correct >= 0 &&
+        item.correct < 4;
+    }
+
+    function loadCustomQuestions() {
+      try {
+        const savedQuestions = window.localStorage.getItem(customQuestionsStorageKey);
+        if (!savedQuestions) return [];
+        const parsedQuestions = JSON.parse(savedQuestions);
+        if (!Array.isArray(parsedQuestions)) {
+          throw new TypeError("Saved questions are not a list.");
+        }
+        const validQuestions = parsedQuestions.filter(isValidQuestion);
+        if (validQuestions.length !== parsedQuestions.length) {
+          questionStorageStatus = "Some saved questions were ignored because they are invalid.";
+        }
+        return validQuestions;
+      } catch (error) {
+        console.error("Could not load saved questions.", error);
+        questionStorageStatus = "Saved questions could not be loaded from this browser.";
+        return [];
+      }
+    }
+
+    customQuestions.push(...loadCustomQuestions());
+    questions.push(...customQuestions);
+    selectedAnswers.push(...customQuestions.map(() => null));
+
+    function updateQuizMetadata() {
+      questionCount.textContent = `Question ${current + 1} of ${questions.length}`;
+      quizBriefing.textContent = `Mission briefing · ${questions.length} questions`;
+      progressTrack.setAttribute("aria-valuemax", questions.length);
     }
 
     function loadHighScores() {
@@ -786,6 +944,12 @@
       timerInterval = setInterval(updateQuestionTimer, 100);
     }
 
+    function resumeQuestionTimer(remaining) {
+      questionStartedAt = performance.now() - (QUESTION_TIME_LIMIT * 1000 - remaining);
+      updateQuestionTimer();
+      if (!locked && remaining > 0) timerInterval = setInterval(updateQuestionTimer, 100);
+    }
+
     function revealNextQuestionButton() {
       nextButton.innerHTML = current === questions.length - 1
         ? "Review my answers <span aria-hidden=\"true\">→</span>"
@@ -798,7 +962,7 @@
       stopQuestionTimer();
       locked = false;
       const item = questions[current];
-      questionCount.textContent = `Question ${current + 1} of ${questions.length}`;
+      updateQuizMetadata();
       questionText.textContent = item.question;
       answerList.replaceChildren();
       feedback.textContent = "";
@@ -809,7 +973,12 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = `answer${selectedAnswers[current] === index ? " selected" : ""}`;
-        button.innerHTML = `<span class="letter">${String.fromCharCode(65 + index)}</span><span>${answer}</span>`;
+        const letter = document.createElement("span");
+        const answerText = document.createElement("span");
+        letter.className = "letter";
+        letter.textContent = String.fromCharCode(65 + index);
+        answerText.textContent = answer;
+        button.append(letter, answerText);
         button.addEventListener("click", () => selectAnswer(index));
         answerList.append(button);
       });
@@ -891,10 +1060,12 @@
       document.querySelector("#final-score").textContent = `${score} / 100`;
       document.querySelector("#response-time").textContent = `Total response time: ${responseTime.toFixed(1)}s · use for tie-breaks`;
       const percent = score / 100;
+      const correctCount = selectedAnswers.reduce((total, selected, index) =>
+        total + (selected === questions[index].correct ? 1 : 0), 0);
       const result = percent === 1
         ? ["🚀", "Out of this world!", "A perfect mission! You really are a cosmic superstar."]
         : percent >= .8
-          ? ["🎉", "Mission accomplished!", "Incredible work, explorer! You nailed at least 8 of 10 questions."]
+          ? ["🎉", "Mission accomplished!", `Incredible work, explorer! You nailed ${correctCount} of ${questions.length} questions.`]
           : percent >= .7
           ? ["🌟", "Stellar work!", "You know your way around the solar system. Keep exploring!"]
           : percent >= .4
@@ -917,8 +1088,9 @@
     });
 
     submitButton.addEventListener("click", () => {
-      score = selectedAnswers.reduce((total, selected, index) =>
-        total + (selected === questions[index].correct ? 10 : 0), 0);
+      const correctCount = selectedAnswers.reduce((total, selected, index) =>
+        total + (selected === questions[index].correct ? 1 : 0), 0);
+      score = Math.round((correctCount / questions.length) * 100);
       scoreCount.textContent = `★ ${score} points`;
       showResults();
     });
@@ -946,6 +1118,106 @@
 
     document.querySelector("#restart-button").addEventListener("click", restartQuiz);
     document.querySelector("#restart-quiz-button").addEventListener("click", restartQuiz);
+
+    function showAdminView(view) {
+      adminSetup.classList.toggle("hidden", view !== "setup");
+      adminUnlock.classList.toggle("hidden", view !== "unlock");
+      adminTools.classList.toggle("hidden", view !== "tools");
+    }
+
+    document.querySelector("#open-admin-button").addEventListener("click", () => {
+      pausedQuestionRemaining = locked
+        ? null
+        : Math.max(0, QUESTION_TIME_LIMIT * 1000 - (performance.now() - questionStartedAt));
+      stopQuestionTimer();
+      quizScreen.classList.add("hidden");
+      adminScreen.classList.remove("hidden");
+      setAdminStatus(questionStorageStatus);
+
+      try {
+        adminPin = window.localStorage.getItem(adminPinStorageKey);
+        showAdminView(adminPin ? "unlock" : "setup");
+      } catch (error) {
+        console.error("Could not access the admin PIN in this browser.", error);
+        showAdminView("setup");
+        setAdminStatus("Admin PIN storage is unavailable in this browser.");
+      }
+    });
+
+    document.querySelector("#admin-setup-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+      const pin = formData.get("pin");
+      if (pin !== formData.get("confirm-pin")) {
+        setAdminStatus("The PIN entries do not match.");
+        return;
+      }
+
+      try {
+        window.localStorage.setItem(adminPinStorageKey, pin);
+        adminPin = pin;
+        showAdminView("tools");
+        setAdminStatus("PIN saved in this browser. You can now add questions.");
+      } catch (error) {
+        console.error("Could not save the admin PIN in this browser.", error);
+        setAdminStatus("The PIN could not be saved in this browser.");
+      }
+    });
+
+    document.querySelector("#admin-unlock-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const pin = new FormData(event.currentTarget).get("pin");
+      if (pin !== adminPin) {
+        setAdminStatus("That PIN is incorrect.");
+        return;
+      }
+      showAdminView("tools");
+      setAdminStatus("Question manager unlocked.");
+    });
+
+    adminQuestionForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(adminQuestionForm);
+      const item = {
+        question: String(formData.get("question")).trim(),
+        answers: [0, 1, 2, 3].map((index) => String(formData.get(`answer-${index}`)).trim()),
+        correct: Number(formData.get("correct-answer"))
+      };
+      if (!isValidQuestion(item)) {
+        setAdminStatus("Enter a question and four non-empty answer options.");
+        return;
+      }
+
+      const updatedQuestions = [...customQuestions, item];
+      try {
+        window.localStorage.setItem(customQuestionsStorageKey, JSON.stringify(updatedQuestions));
+      } catch (error) {
+        console.error("Could not save the question in this browser.", error);
+        setAdminStatus("The question could not be saved in this browser.");
+        return;
+      }
+
+      customQuestions.push(item);
+      questions.push(item);
+      selectedAnswers.push(null);
+      questionStorageStatus = "";
+      updateQuizMetadata();
+      adminQuestionForm.reset();
+      setAdminStatus(`Question added. This quiz now has ${questions.length} questions.`);
+    });
+
+    document.querySelector("#close-admin-button").addEventListener("click", () => {
+      adminScreen.classList.add("hidden");
+      quizScreen.classList.remove("hidden");
+      adminPin = null;
+      document.querySelector("#admin-pin").value = "";
+      document.querySelector("#admin-new-pin").value = "";
+      document.querySelector("#admin-confirm-pin").value = "";
+      if (pausedQuestionRemaining !== null && !locked) {
+        resumeQuestionTimer(pausedQuestionRemaining);
+      }
+      pausedQuestionRemaining = null;
+    });
 
     highScores = loadHighScores();
     renderHighScores();
